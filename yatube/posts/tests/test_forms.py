@@ -42,6 +42,7 @@ class PostsFormsTests(TestCase):
     def setUp(self):
         self.auth_client = Client()
         self.auth_client.force_login(PostsFormsTests.user)
+        self.guest_client = Client()
 
     def test_posts_create_post(self):
         """Валидная форма создает запись в Post."""
@@ -100,17 +101,52 @@ class PostsFormsTests(TestCase):
             reverse('posts:post_edit', kwargs={'post_id': self.post.pk}),
             data=form_data,
         )
-
         self.assertEqual(Post.objects.count(), posts_count)
         self.assertEqual(
             Post.objects.get(pk=self.post.pk).text,
             TEST_POST_EDIT_TEXT
         )
 
+    def test_posts_image_correct_type(self):
+        """
+        Проверка, если пользователь отправит не картинку,
+        мы вернем правильную ошибку
+        """
+        small_gif = (
+            b'\x17\x49\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+        )
+        uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=small_gif,
+            content_type='txt'
+        )
+
+        form_data = {
+            'text': TEST_POST_TEXT,
+            'group': self.group.pk,
+            'image': uploaded,
+        }
+
+        response = self.auth_client.post(
+            reverse('posts:post_create'),
+            data=form_data,
+            follow=True
+        )
+        self.assertFormError(
+            response,
+            'form',
+            'image',
+            'Загрузите правильное изображение. Файл, который вы загрузили, '
+            'поврежден или не является изображением.'
+        )
+
     def test_posts_comments_by_auth_client(self):
         """Только авторизованный пользователь может оставлять комментарии."""
         comments_count = Comment.objects.count()
-        guest_client = Client()
         form_data = {
             'text': TEST_COMMENT_TEXT,
         }
@@ -122,7 +158,11 @@ class PostsFormsTests(TestCase):
                             kwargs={'post_id': self.post.pk}),
         }
 
-        guest_response = guest_client.post(page, data=form_data, follow=True)
+        guest_response = self.guest_client.post(
+            page,
+            data=form_data,
+            follow=True
+        )
         self.assertRedirects(guest_response, redirect_page['guest'])
         self.assertEqual(Comment.objects.count(), comments_count)
 

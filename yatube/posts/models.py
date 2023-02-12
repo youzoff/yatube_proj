@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 
-import core.models as cm
+from core.models import CreatedModel
 
 User = get_user_model()
 
@@ -15,7 +15,7 @@ class Group(models.Model):
         return self.title
 
 
-class Post(cm.CreatedModel):
+class Post(CreatedModel):
     text = models.TextField(
         verbose_name='Текст поста',
         help_text='Введите текст поста'
@@ -37,7 +37,7 @@ class Post(cm.CreatedModel):
         help_text='Выберите группу'
     )
     image = models.ImageField(
-        'Картинка',
+        verbose_name='Картинка',
         upload_to='posts/',
         blank=True
     )
@@ -51,7 +51,7 @@ class Post(cm.CreatedModel):
         return self.text[:15]
 
 
-class Comment(cm.CreatedModel):
+class Comment(CreatedModel):
     post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
@@ -82,3 +82,6 @@ class Follow(models.Model):
         on_delete=models.CASCADE,
         related_name='following'
     )
+
+    class Meta:
+        unique_together = ['user', 'author']
